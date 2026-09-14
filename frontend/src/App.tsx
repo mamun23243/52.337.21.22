@@ -1,12 +1,10 @@
 import React, { useEffect, useState } from "react";
 import {
-  BrowserRouter,
   Routes,
   Route,
   Navigate,
   Link,
   useNavigate,
-  useLocation,
 } from "react-router-dom";
 
 /* =========================================================
@@ -1044,197 +1042,193 @@ function GenericPanelPage({
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
+    <Routes>
+      {/* PUBLIC */}
+      <Route
+        path="/"
+        element={<LandingPage />}
+      />
 
-        {/* PUBLIC */}
-        <Route
-          path="/"
-          element={<LandingPage />}
-        />
+      <Route
+        path="/pricing"
+        element={<PricingPage />}
+      />
 
-        <Route
-          path="/pricing"
-          element={<PricingPage />}
-        />
+      {/* LOGIN */}
+      <Route
+        path="/login"
+        element={<LoginPage />}
+      />
 
-        {/* LOGIN */}
-        <Route
-          path="/login"
-          element={<LoginPage />}
-        />
+      {/* ADMIN */}
+      <Route
+        path="/admin/dashboard"
+        element={
+          <ProtectedRoute allowedRole="ADMIN">
+            <AdminDashboard />
+          </ProtectedRoute>
+        }
+      />
 
-        {/* ADMIN */}
-        <Route
-          path="/admin/dashboard"
-          element={
-            <ProtectedRoute allowedRole="ADMIN">
-              <AdminDashboard />
-            </ProtectedRoute>
-          }
-        />
+      <Route
+        path="/admin/users"
+        element={
+          <ProtectedRoute allowedRole="ADMIN">
+            <GenericPanelPage
+              title="Users"
+              role="ADMIN"
+            />
+          </ProtectedRoute>
+        }
+      />
 
-        <Route
-          path="/admin/users"
-          element={
-            <ProtectedRoute allowedRole="ADMIN">
-              <GenericPanelPage
-                title="Users"
-                role="ADMIN"
-              />
-            </ProtectedRoute>
-          }
-        />
+      <Route
+        path="/admin/staff"
+        element={
+          <ProtectedRoute allowedRole="ADMIN">
+            <GenericPanelPage
+              title="Staff"
+              role="ADMIN"
+            />
+          </ProtectedRoute>
+        }
+      />
 
-        <Route
-          path="/admin/staff"
-          element={
-            <ProtectedRoute allowedRole="ADMIN">
-              <GenericPanelPage
-                title="Staff"
-                role="ADMIN"
-              />
-            </ProtectedRoute>
-          }
-        />
+      <Route
+        path="/admin/departments"
+        element={
+          <ProtectedRoute allowedRole="ADMIN">
+            <GenericPanelPage
+              title="Departments"
+              role="ADMIN"
+            />
+          </ProtectedRoute>
+        }
+      />
 
-        <Route
-          path="/admin/departments"
-          element={
-            <ProtectedRoute allowedRole="ADMIN">
-              <GenericPanelPage
-                title="Departments"
-                role="ADMIN"
-              />
-            </ProtectedRoute>
-          }
-        />
+      <Route
+        path="/admin/records"
+        element={
+          <ProtectedRoute allowedRole="ADMIN">
+            <GenericPanelPage
+              title="Records"
+              role="ADMIN"
+            />
+          </ProtectedRoute>
+        }
+      />
 
-        <Route
-          path="/admin/records"
-          element={
-            <ProtectedRoute allowedRole="ADMIN">
-              <GenericPanelPage
-                title="Records"
-                role="ADMIN"
-              />
-            </ProtectedRoute>
-          }
-        />
+      <Route
+        path="/admin/reports"
+        element={
+          <ProtectedRoute allowedRole="ADMIN">
+            <GenericPanelPage
+              title="Reports"
+              role="ADMIN"
+            />
+          </ProtectedRoute>
+        }
+      />
 
-        <Route
-          path="/admin/reports"
-          element={
-            <ProtectedRoute allowedRole="ADMIN">
-              <GenericPanelPage
-                title="Reports"
-                role="ADMIN"
-              />
-            </ProtectedRoute>
-          }
-        />
+      <Route
+        path="/admin/notifications"
+        element={
+          <ProtectedRoute allowedRole="ADMIN">
+            <GenericPanelPage
+              title="Notifications"
+              role="ADMIN"
+            />
+          </ProtectedRoute>
+        }
+      />
 
-        <Route
-          path="/admin/notifications"
-          element={
-            <ProtectedRoute allowedRole="ADMIN">
-              <GenericPanelPage
-                title="Notifications"
-                role="ADMIN"
-              />
-            </ProtectedRoute>
-          }
-        />
+      <Route
+        path="/admin/settings"
+        element={
+          <ProtectedRoute allowedRole="ADMIN">
+            <GenericPanelPage
+              title="Settings"
+              role="ADMIN"
+            />
+          </ProtectedRoute>
+        }
+      />
 
-        <Route
-          path="/admin/settings"
-          element={
-            <ProtectedRoute allowedRole="ADMIN">
-              <GenericPanelPage
-                title="Settings"
-                role="ADMIN"
-              />
-            </ProtectedRoute>
-          }
-        />
+      {/* USER */}
+      <Route
+        path="/user/dashboard"
+        element={
+          <ProtectedRoute allowedRole="USER">
+            <UserDashboard />
+          </ProtectedRoute>
+        }
+      />
 
-        {/* USER */}
-        <Route
-          path="/user/dashboard"
-          element={
-            <ProtectedRoute allowedRole="USER">
-              <UserDashboard />
-            </ProtectedRoute>
-          }
-        />
+      <Route
+        path="/user/profile"
+        element={
+          <ProtectedRoute allowedRole="USER">
+            <GenericPanelPage
+              title="My Profile"
+              role="USER"
+            />
+          </ProtectedRoute>
+        }
+      />
 
-        <Route
-          path="/user/profile"
-          element={
-            <ProtectedRoute allowedRole="USER">
-              <GenericPanelPage
-                title="My Profile"
-                role="USER"
-              />
-            </ProtectedRoute>
-          }
-        />
+      <Route
+        path="/user/records"
+        element={
+          <ProtectedRoute allowedRole="USER">
+            <GenericPanelPage
+              title="My Records"
+              role="USER"
+            />
+          </ProtectedRoute>
+        }
+      />
 
-        <Route
-          path="/user/records"
-          element={
-            <ProtectedRoute allowedRole="USER">
-              <GenericPanelPage
-                title="My Records"
-                role="USER"
-              />
-            </ProtectedRoute>
-          }
-        />
+      <Route
+        path="/user/reports"
+        element={
+          <ProtectedRoute allowedRole="USER">
+            <GenericPanelPage
+              title="My Reports"
+              role="USER"
+            />
+          </ProtectedRoute>
+        }
+      />
 
-        <Route
-          path="/user/reports"
-          element={
-            <ProtectedRoute allowedRole="USER">
-              <GenericPanelPage
-                title="My Reports"
-                role="USER"
-              />
-            </ProtectedRoute>
-          }
-        />
+      <Route
+        path="/user/notifications"
+        element={
+          <ProtectedRoute allowedRole="USER">
+            <GenericPanelPage
+              title="Notifications"
+              role="USER"
+            />
+          </ProtectedRoute>
+        }
+      />
 
-        <Route
-          path="/user/notifications"
-          element={
-            <ProtectedRoute allowedRole="USER">
-              <GenericPanelPage
-                title="Notifications"
-                role="USER"
-              />
-            </ProtectedRoute>
-          }
-        />
+      <Route
+        path="/user/settings"
+        element={
+          <ProtectedRoute allowedRole="USER">
+            <GenericPanelPage
+              title="Settings"
+              role="USER"
+            />
+          </ProtectedRoute>
+        }
+      />
 
-        <Route
-          path="/user/settings"
-          element={
-            <ProtectedRoute allowedRole="USER">
-              <GenericPanelPage
-                title="Settings"
-                role="USER"
-              />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* FALLBACK */}
-        <Route
-          path="*"
-          element={<Navigate to="/" replace />}
-        />
-
-      </Routes>
-    </BrowserRouter>
+      {/* FALLBACK */}
+      <Route
+        path="*"
+        element={<Navigate to="/" replace />}
+      />
+    </Routes>
   );
 }
