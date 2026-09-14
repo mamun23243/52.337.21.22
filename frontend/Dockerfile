@@ -1,15 +1,11 @@
-FROM node:22-alpine
-
+FROM node:22-alpine AS build
 WORKDIR /app
-
-COPY backend/package*.json ./
-
+COPY package*.json ./
 RUN npm install
+COPY . .
+RUN npm run build
 
-COPY backend/ ./
-
-RUN npx prisma generate && npm run build
-
-EXPOSE 4000
-
-CMD ["sh", "-c", "npx prisma migrate deploy && npm start"]
+FROM nginx:alpine
+COPY --from=build /app/dist /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx","-g","daemon off;"]
