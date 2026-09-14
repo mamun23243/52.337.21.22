@@ -1,8 +1,15 @@
 FROM node:22-alpine
+
 WORKDIR /app
-COPY package*.json ./
+
+COPY backend/package*.json ./
+
 RUN npm install
-COPY . .
+
+COPY backend/ ./
+
 RUN npx prisma generate && npm run build
+
 EXPOSE 4000
-CMD ["sh","-c","npx prisma migrate deploy && npm start"]
+
+CMD ["sh", "-c", "npx prisma migrate deploy && npm start"]
