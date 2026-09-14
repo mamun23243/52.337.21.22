@@ -7,20 +7,172 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id           Int      @id @default(autoincrement())
-  name         String
-  email        String   @unique
-  passwordHash String
-  role         Role     @default(USER)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  LOCKED
 }
 
-enum Role {
+enum RoleName {
   SUPER_ADMIN
   ADMIN
   MANAGER
   STAFF
   USER
+}
+
+model User {
+  id              String          @id @default(cuid())
+  username        String?         @unique
+  email           String          @unique
+  passwordHash    String
+  name            String?
+  phone           String?
+  status          UserStatus      @default(ACTIVE)
+  role            RoleName        @default(USER)
+  departmentId    String?
+  failedAttempts  Int             @default(0)
+  lockedUntil     DateTime?
+  lastLoginAt     DateTime?
+  forcePasswordChange Boolean     @default(false)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  department      Department?     @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  activityLogs    ActivityLog[]
+  loginHistory    LoginHistory[]
+  sessions        Session[]
+  notifications   Notification[]
+  records         Record[]        @relation("RecordCreator")
+  staffProfile    Staff?
+  @@index([status])
+  @@index([role])
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  name        RoleName         @unique
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  label       String
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role         @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission  Permission  @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  @@id([roleId, permissionId])
+}
+
+model Department {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  status      String   @default("ACTIVE")
+  managerId   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  users       User[]
+  staff       Staff[]
+}
+
+model Staff {
+  id           String      @id @default(cuid())
+  employeeId   String      @unique
+  userId       String?     @unique
+  fullName     String
+  email        String?
+  phone        String?
+  designation  String?
+  joiningDate  DateTime?
+  salary       Decimal?    @db.Decimal(12,2)
+  status       String      @default("ACTIVE")
+  address      String?
+  profileImage String?
+  departmentId String?
+  user         User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model Record {
+  id        String   @id @default(cuid())
+  title     String
+  status    String   @default("PENDING")
+  data      Json?
+  createdById String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy User @relation("RecordCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, read])
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  action      String
+  description String
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  @@index([createdAt])
+  @@index([action])
+}
+
+model LoginHistory {
+  id        String   @id @default(cuid())
+  userId    String?
+  success   Boolean
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  @@index([createdAt])
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  refreshHash  String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+}
+
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String?  @db.Text
+  updatedAt DateTime @updatedAt
 }
