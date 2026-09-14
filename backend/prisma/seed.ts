@@ -45,16 +45,16 @@ async function main() {
   const passwordHash = await bcrypt.hash(password, 12);
   await prisma.user.upsert({
     where:{email},
-    update:{role:"SUPER_ADMIN",status:"ACTIVE"},
-    create:{
-      email,
-      username: process.env.ADMIN_USERNAME || "admin",
-      name: process.env.ADMIN_NAME || "System Administrator",
-      passwordHash,
-      role:"SUPER_ADMIN",
-      status:"ACTIVE",
-      forcePasswordChange:false
-    }
+   update:{
+  username: process.env.ADMIN_USERNAME || "admin",
+  name: process.env.ADMIN_NAME || "System Administrator",
+  passwordHash,
+  role:"SUPER_ADMIN",
+  status:"ACTIVE",
+  failedAttempts:0,
+  lockedUntil:null,
+  forcePasswordChange:false
+},
   });
 
   console.log(`Admin ready: ${email}`);
