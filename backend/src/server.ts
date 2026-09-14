@@ -159,14 +159,14 @@ app.put("/api/users/:id",auth,requireRole("SUPER_ADMIN","ADMIN"),async(req:AuthR
   if(req.body.email!==undefined) data.email=req.body.email;
   if(req.body.role) data.role=req.body.role;
   if(req.body.password) data.passwordHash=await bcrypt.hash(req.body.password,12);
-  const u=await prisma.user.update({where:{id:req.params.id},data});
+  const u=await prisma.user.update({where:{id:String(req.params.id)},data});
   await prisma.activityLog.create({data:{userId:req.user!.id,action:"UPDATE",description:`Updated user ${u.username||u.email}`,ipAddress:ip(req),userAgent:req.headers["user-agent"]}});
   res.json({user:{id:u.id,username:u.username,email:u.email,name:u.name,role:u.role,status:u.status}});
 });
 
 app.delete("/api/users/:id",auth,requireRole("SUPER_ADMIN","ADMIN"),async(req:AuthRequest,res)=>{
   if(req.params.id===req.user!.id) return res.status(400).json({message:"You cannot delete your own account"});
-  const u=await prisma.user.delete({where:{id:req.params.id}});
+  const u=await prisma.user.delete({where:{id:String(req.params.id)}});
   await prisma.activityLog.create({data:{userId:req.user!.id,action:"DELETE",description:`Deleted user ${u.username||u.email}`,ipAddress:ip(req),userAgent:req.headers["user-agent"]}});
   res.json({success:true});
 });
