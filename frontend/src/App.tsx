@@ -1,2635 +1,1240 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  Navigate,
-  NavLink,
-  Route,
+  BrowserRouter,
   Routes,
+  Route,
+  Navigate,
+  Link,
+  useNavigate,
   useLocation,
-  useNavigate
 } from "react-router-dom";
 
-import {
-  Activity,
-  BarChart3,
-  Bell,
-  Building2,
-  ChevronLeft,
-  ChevronRight,
-  ClipboardList,
-  FileText,
-  LayoutDashboard,
-  LogOut,
-  Menu,
-  Moon,
-  Search,
-  Settings,
-  Shield,
-  Sun,
-  UserRound,
-  Users,
-  X,
-  UserCog
-} from "lucide-react";
-
-import { api } from "./api";
-import type { Dashboard, User } from "./types";
-
-
 /* =========================================================
-   GET STORED USER
+   CONFIG
 ========================================================= */
 
-function getStoredUser(): User | null {
+const API_BASE =
+  import.meta.env.VITE_API_URL ||
+  "https://523372122-production.up.railway.app";
+
+/*
+  IMPORTANT:
+  এখানে তোমার আসল Adsterra / Monetag code বসাবে।
+  Fake code ব্যবহার করলে ad show করবে না.
+*/
+
+const ADSTERRA_CODE = `
+  <!-- PASTE YOUR REAL ADSTERRA CODE HERE -->
+`;
+
+const MONETAG_CODE = `
+  <!-- PASTE YOUR REAL MONETAG CODE HERE -->
+`;
+
+/* =========================================================
+   TYPES
+========================================================= */
+
+type User = {
+  id?: string;
+  name?: string;
+  username?: string;
+  email?: string;
+  role?: string;
+};
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+function getUser(): User | null {
   try {
-    return JSON.parse(
-      localStorage.getItem("ms_user") || "null"
-    );
+    const value = localStorage.getItem("user");
+    return value ? JSON.parse(value) : null;
   } catch {
     return null;
   }
 }
 
+function isLoggedIn() {
+  return Boolean(localStorage.getItem("token"));
+}
 
 /* =========================================================
-   LOGIN
+   AD COMPONENT
 ========================================================= */
 
-function Login() {
-  const nav = useNavigate();
+function AdSlot({
+  provider,
+  code,
+}: {
+  provider: "adsterra" | "monetag";
+  code: string;
+}) {
+  const ref = React.useRef<HTMLDivElement>(null);
 
-  const [identifier, setIdentifier] = useState("");
+  useEffect(() => {
+    if (!ref.current || !code.trim()) return;
+
+    ref.current.innerHTML = "";
+
+    const doc = new DOMParser().parseFromString(code, "text/html");
+
+    Array.from(doc.body.childNodes).forEach((node) => {
+      if (node.nodeName.toLowerCase() === "script") {
+        const oldScript = node as HTMLScriptElement;
+        const script = document.createElement("script");
+
+        Array.from(oldScript.attributes).forEach((attr) => {
+          script.setAttribute(attr.name, attr.value);
+        });
+
+        script.textContent = oldScript.textContent || "";
+
+        ref.current?.appendChild(script);
+      } else {
+        ref.current?.appendChild(node.cloneNode(true));
+      }
+    });
+
+    return () => {
+      if (ref.current) ref.current.innerHTML = "";
+    };
+  }, [code]);
+
+  return (
+    <div
+      ref={ref}
+      data-ad-provider={provider}
+      className="my-8 min-h-[60px] w-full overflow-hidden"
+    />
+  );
+}
+
+/* =========================================================
+   PUBLIC NAVBAR
+========================================================= */
+
+function Navbar() {
+  const navigate = useNavigate();
+
+  const logged = isLoggedIn();
+  const user = getUser();
+
+  function goDashboard() {
+    if (user?.role === "USER") {
+      navigate("/user/dashboard");
+    } else {
+      navigate("/admin/dashboard");
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate("/");
+  }
+
+  return (
+    <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/95 backdrop-blur">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
+        <Link to="/" className="text-2xl font-black text-white">
+          Management
+          <span className="text-blue-500">Pro</span>
+        </Link>
+
+        <nav className="hidden items-center gap-7 md:flex">
+          <Link
+            to="/"
+            className="text-slate-300 transition hover:text-white"
+          >
+            Home
+          </Link>
+
+          <Link
+            to="/pricing"
+            className="text-slate-300 transition hover:text-white"
+          >
+            Pricing
+          </Link>
+
+          <a
+            href="#features"
+            className="text-slate-300 transition hover:text-white"
+          >
+            Features
+          </a>
+        </nav>
+
+        <div className="flex items-center gap-3">
+          {logged ? (
+            <>
+              <button
+                onClick={goDashboard}
+                className="rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-500"
+              >
+                Dashboard
+              </button>
+
+              <button
+                onClick={logout}
+                className="hidden rounded-xl border border-white/10 px-4 py-2 text-slate-300 hover:bg-white/10 sm:block"
+              >
+                Logout
+              </button>
+            </>
+          ) : (
+            <Link
+              to="/login"
+              className="rounded-xl bg-blue-600 px-5 py-2.5 font-semibold text-white hover:bg-blue-500"
+            >
+              Login
+            </Link>
+          )}
+        </div>
+      </div>
+    </header>
+  );
+}
+
+/* =========================================================
+   LANDING PAGE
+========================================================= */
+
+function LandingPage() {
+  return (
+    <div className="min-h-screen bg-slate-950 text-white">
+      <Navbar />
+
+      {/* HERO */}
+      <section className="relative overflow-hidden">
+        <div className="mx-auto max-w-7xl px-5 py-24 md:py-32">
+          <div className="mx-auto max-w-4xl text-center">
+            <div className="mb-7 inline-flex rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-300">
+              Modern Management Platform
+            </div>
+
+            <h1 className="text-5xl font-black leading-tight md:text-7xl">
+              Manage Everything
+              <span className="block text-blue-500">
+                In One Place
+              </span>
+            </h1>
+
+            <p className="mx-auto mt-7 max-w-2xl text-lg leading-8 text-slate-400">
+              Manage users, staff, departments, records, reports
+              and notifications from one powerful management platform.
+            </p>
+
+            <div className="mt-10 flex flex-col justify-center gap-4 sm:flex-row">
+              <Link
+                to="/login"
+                className="rounded-xl bg-blue-600 px-8 py-4 font-bold hover:bg-blue-500"
+              >
+                Get Started
+              </Link>
+
+              <Link
+                to="/pricing"
+                className="rounded-xl border border-white/15 px-8 py-4 font-bold hover:bg-white/10"
+              >
+                View Pricing
+              </Link>
+            </div>
+          </div>
+
+          {/* ADSTERRA */}
+          <div className="mx-auto mt-16 max-w-5xl">
+            <AdSlot
+              provider="adsterra"
+              code={ADSTERRA_CODE}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* FEATURES */}
+      <section
+        id="features"
+        className="border-y border-white/10 bg-slate-900/50"
+      >
+        <div className="mx-auto max-w-7xl px-5 py-24">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-4xl font-black md:text-5xl">
+              Powerful Features
+            </h2>
+
+            <p className="mt-5 text-slate-400">
+              Everything you need to manage your organization.
+            </p>
+          </div>
+
+          <div className="mt-14 grid gap-6 md:grid-cols-3">
+            <Feature
+              icon="👥"
+              title="User Management"
+              text="Create, manage and control user accounts and access."
+            />
+
+            <Feature
+              icon="🧑‍💼"
+              title="Staff Management"
+              text="Organize your staff and manage your team efficiently."
+            />
+
+            <Feature
+              icon="🏢"
+              title="Departments"
+              text="Keep departments organized and easy to manage."
+            />
+
+            <Feature
+              icon="📁"
+              title="Records"
+              text="Store and manage important records from one dashboard."
+            />
+
+            <Feature
+              icon="📊"
+              title="Reports"
+              text="Monitor your data and generate useful reports."
+            />
+
+            <Feature
+              icon="🔔"
+              title="Notifications"
+              text="Keep users informed with important notifications."
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* PRICING PREVIEW */}
+      <section className="mx-auto max-w-7xl px-5 py-24">
+        <div className="text-center">
+          <h2 className="text-4xl font-black md:text-5xl">
+            Simple Pricing
+          </h2>
+
+          <p className="mt-5 text-slate-400">
+            Choose the plan that works for you.
+          </p>
+        </div>
+
+        <div className="mt-14 grid gap-6 md:grid-cols-4">
+          <PriceCard
+            name="Free"
+            price="৳0"
+            features={[
+              "Basic Dashboard",
+              "Basic Records",
+              "User Account",
+            ]}
+          />
+
+          <PriceCard
+            name="Basic"
+            price="৳499"
+            popular
+            features={[
+              "Everything in Free",
+              "Reports",
+              "Notifications",
+              "Advanced Records",
+            ]}
+          />
+
+          <PriceCard
+            name="Business"
+            price="৳999"
+            features={[
+              "Everything in Basic",
+              "Staff Management",
+              "Departments",
+              "Priority Support",
+            ]}
+          />
+
+          <PriceCard
+            name="Professional"
+            price="৳1,999"
+            features={[
+              "Everything in Business",
+              "Advanced Reports",
+              "Premium Features",
+              "Priority Support",
+            ]}
+          />
+        </div>
+
+        <div className="mt-12 text-center">
+          <Link
+            to="/pricing"
+            className="font-semibold text-blue-400 hover:text-blue-300"
+          >
+            See all pricing →
+          </Link>
+        </div>
+      </section>
+
+      {/* MONETAG */}
+      <section className="mx-auto max-w-5xl px-5 pb-20">
+        <AdSlot
+          provider="monetag"
+          code={MONETAG_CODE}
+        />
+      </section>
+
+      {/* CTA */}
+      <section className="border-y border-white/10 bg-blue-600">
+        <div className="mx-auto max-w-5xl px-5 py-20 text-center">
+          <h2 className="text-4xl font-black md:text-5xl">
+            Ready to Get Started?
+          </h2>
+
+          <p className="mx-auto mt-5 max-w-2xl text-blue-100">
+            Start managing your organization with a modern,
+            centralized management system.
+          </p>
+
+          <Link
+            to="/login"
+            className="mt-8 inline-block rounded-xl bg-white px-8 py-4 font-bold text-blue-700 hover:bg-slate-100"
+          >
+            Start Now
+          </Link>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="bg-slate-950">
+        <div className="mx-auto flex max-w-7xl flex-col justify-between gap-5 px-5 py-10 md:flex-row">
+          <div>
+            <div className="text-xl font-bold">
+              Management<span className="text-blue-500">Pro</span>
+            </div>
+
+            <p className="mt-2 text-sm text-slate-500">
+              Modern management made simple.
+            </p>
+          </div>
+
+          <div className="flex gap-6 text-sm text-slate-400">
+            <Link to="/pricing">Pricing</Link>
+            <Link to="/login">Login</Link>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+/* =========================================================
+   FEATURE
+========================================================= */
+
+function Feature({
+  icon,
+  title,
+  text,
+}: {
+  icon: string;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-slate-900 p-7 transition hover:-translate-y-1 hover:border-blue-500/40">
+      <div className="text-4xl">{icon}</div>
+
+      <h3 className="mt-5 text-xl font-bold">
+        {title}
+      </h3>
+
+      <p className="mt-3 leading-7 text-slate-400">
+        {text}
+      </p>
+    </div>
+  );
+}
+
+/* =========================================================
+   PRICING CARD
+========================================================= */
+
+function PriceCard({
+  name,
+  price,
+  features,
+  popular = false,
+}: {
+  name: string;
+  price: string;
+  features: string[];
+  popular?: boolean;
+}) {
+  return (
+    <div
+      className={`relative rounded-2xl border p-7 ${
+        popular
+          ? "border-blue-500 bg-blue-500/10"
+          : "border-white/10 bg-slate-900"
+      }`}
+    >
+      {popular && (
+        <div className="absolute right-5 top-5 rounded-full bg-blue-600 px-3 py-1 text-xs font-bold">
+          POPULAR
+        </div>
+      )}
+
+      <h3 className="text-xl font-bold">
+        {name}
+      </h3>
+
+      <div className="mt-6 text-4xl font-black">
+        {price}
+      </div>
+
+      {price !== "৳0" && (
+        <div className="text-sm text-slate-500">
+          per month
+        </div>
+      )}
+
+      <ul className="mt-8 space-y-3">
+        {features.map((feature) => (
+          <li
+            key={feature}
+            className="text-sm text-slate-300"
+          >
+            ✓ {feature}
+          </li>
+        ))}
+      </ul>
+
+      <Link
+        to="/login"
+        className="mt-8 block rounded-xl bg-blue-600 px-5 py-3 text-center font-bold hover:bg-blue-500"
+      >
+        Get Started
+      </Link>
+    </div>
+  );
+}
+
+/* =========================================================
+   PRICING PAGE
+========================================================= */
+
+function PricingPage() {
+  return (
+    <div className="min-h-screen bg-slate-950 text-white">
+      <Navbar />
+
+      <div className="mx-auto max-w-7xl px-5 py-24">
+        <div className="text-center">
+          <h1 className="text-5xl font-black">
+            Choose Your Plan
+          </h1>
+
+          <p className="mx-auto mt-5 max-w-2xl text-slate-400">
+            Flexible plans designed for individuals, teams and
+            growing businesses.
+          </p>
+        </div>
+
+        <div className="mt-16 grid gap-6 md:grid-cols-4">
+          <PriceCard
+            name="Free"
+            price="৳0"
+            features={[
+              "Basic Dashboard",
+              "Basic Records",
+              "User Account",
+            ]}
+          />
+
+          <PriceCard
+            name="Basic"
+            price="৳499"
+            popular
+            features={[
+              "Everything in Free",
+              "Reports",
+              "Notifications",
+              "Advanced Records",
+            ]}
+          />
+
+          <PriceCard
+            name="Business"
+            price="৳999"
+            features={[
+              "Everything in Basic",
+              "Staff Management",
+              "Departments",
+              "Priority Support",
+            ]}
+          />
+
+          <PriceCard
+            name="Professional"
+            price="৳1,999"
+            features={[
+              "Everything in Business",
+              "Advanced Reports",
+              "Premium Features",
+              "Priority Support",
+            ]}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   LOGIN PAGE
+========================================================= */
+
+function LoginPage() {
+  const navigate = useNavigate();
+
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [show, setShow] = useState(false);
-  const [remember, setRemember] = useState(true);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-
-  async function submit(e: React.FormEvent) {
+  async function login(e: React.FormEvent) {
     e.preventDefault();
 
     setError("");
-
-    if (!identifier || !password) {
-      return setError(
-        "Username/email and password are required."
-      );
-    }
-
     setLoading(true);
 
     try {
-      const { data } = await api.post(
-        "/api/auth/login",
-        {
-          identifier,
-          email: identifier,
-          username: identifier,
+      const response = await fetch(`${API_BASE}/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
           password,
-          remember
-        }
-      );
+        }),
+      });
 
-      if (data.user) {
-        localStorage.setItem(
-          "ms_user",
-          JSON.stringify(data.user)
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.message ||
+            data?.error ||
+            "Login failed"
         );
       }
 
-      const user = data.user as User;
+      const token =
+        data.token ||
+        data.accessToken ||
+        data.access_token;
 
-      nav(
-        user?.role === "USER"
-          ? "/user/dashboard"
-          : "/admin/dashboard",
-        {
-          replace: true
-        }
-      );
+      const user =
+        data.user ||
+        data.data?.user;
 
+      if (!token) {
+        throw new Error(
+          "Login successful হলেও token পাওয়া যায়নি।"
+        );
+      }
+
+      localStorage.setItem("token", token);
+
+      if (user) {
+        localStorage.setItem(
+          "user",
+          JSON.stringify(user)
+        );
+      }
+
+      const role = user?.role;
+
+      if (role === "USER") {
+        navigate("/user/dashboard", {
+          replace: true,
+        });
+      } else {
+        navigate("/admin/dashboard", {
+          replace: true,
+        });
+      }
     } catch (err: any) {
       setError(
-        err?.response?.data?.message ||
-        "Login failed. Please check your credentials."
+        err?.message ||
+          "Something went wrong. Please try again."
       );
     } finally {
       setLoading(false);
     }
   }
 
-
   return (
-    <div className="login-page">
+    <div className="flex min-h-screen items-center justify-center bg-slate-950 px-5 text-white">
+      <div className="w-full max-w-md">
+        <div className="mb-8 text-center">
+          <Link
+            to="/"
+            className="text-3xl font-black"
+          >
+            Management
+            <span className="text-blue-500">
+              Pro
+            </span>
+          </Link>
 
-      <div className="login-glow glow-a" />
-      <div className="login-glow glow-b" />
+          <h1 className="mt-8 text-3xl font-bold">
+            Welcome Back
+          </h1>
 
-      <form
-        className="login-card"
-        onSubmit={submit}
-      >
-
-        <div className="brand-mark">
-          <Shield size={30} />
+          <p className="mt-2 text-slate-400">
+            Login to your account
+          </p>
         </div>
 
-        <div className="eyebrow">
-          SECURE ACCESS
-        </div>
+        <form
+          onSubmit={login}
+          className="rounded-2xl border border-white/10 bg-slate-900 p-7 shadow-2xl"
+        >
+          {error && (
+            <div className="mb-5 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
+              {error}
+            </div>
+          )}
 
-        <h1>Account Login</h1>
-
-        <p className="muted">
-          Sign in to your management portal
-        </p>
-
-
-        {error && (
-          <div className="alert error">
-            {error}
-          </div>
-        )}
-
-
-        <label>
-          Username or Email
-        </label>
-
-        <input
-          value={identifier}
-          onChange={(e) =>
-            setIdentifier(e.target.value)
-          }
-          placeholder="Enter username or email"
-          autoComplete="username"
-        />
-
-
-        <label>
-          Password
-        </label>
-
-        <div className="password-wrap">
+          <label className="block text-sm font-medium text-slate-300">
+            Email
+          </label>
 
           <input
-            type={show ? "text" : "password"}
+            type="email"
+            value={email}
+            onChange={(e) =>
+              setEmail(e.target.value)
+            }
+            placeholder="Enter your email"
+            required
+            className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+          />
+
+          <label className="mt-5 block text-sm font-medium text-slate-300">
+            Password
+          </label>
+
+          <input
+            type="password"
             value={password}
             onChange={(e) =>
               setPassword(e.target.value)
             }
-            placeholder="Enter password"
-            autoComplete="current-password"
+            placeholder="Enter your password"
+            required
+            className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
           />
 
           <button
-            type="button"
-            className="ghost-icon"
-            onClick={() => setShow(!show)}
+            type="submit"
+            disabled={loading}
+            className="mt-7 w-full rounded-xl bg-blue-600 px-5 py-3.5 font-bold hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {show ? "Hide" : "Show"}
+            {loading ? "Logging in..." : "Login"}
           </button>
 
-        </div>
-
-
-        <div className="login-options">
-
-          <label className="check">
-
-            <input
-              type="checkbox"
-              checked={remember}
-              onChange={(e) =>
-                setRemember(e.target.checked)
-              }
-            />
-
-            Remember me
-
-          </label>
-
-          <span className="linkish">
-            Forgot password?
-          </span>
-
-        </div>
-
-
-        <button
-          className="primary big"
-          disabled={loading}
-        >
-          {loading
-            ? "Signing in..."
-            : "LOGIN"}
-        </button>
-
-
-        <div className="login-foot">
-          Protected management system • Secure session
-        </div>
-
-      </form>
+          <Link
+            to="/"
+            className="mt-5 block text-center text-sm text-slate-400 hover:text-white"
+          >
+            ← Back to website
+          </Link>
+        </form>
+      </div>
     </div>
   );
 }
 
-
 /* =========================================================
-   ADMIN MENU
+   PROTECTED ROUTE
 ========================================================= */
 
-const adminMenu = [
-
-  {
-    to: "/admin/dashboard",
-    label: "Dashboard",
-    icon: LayoutDashboard
-  },
-
-  {
-    to: "/admin/users",
-    label: "Users",
-    icon: Users
-  },
-
-  {
-    to: "/admin/staff",
-    label: "Staff",
-    icon: UserCog
-  },
-
-  {
-    to: "/admin/departments",
-    label: "Departments",
-    icon: Building2
-  },
-
-  {
-    to: "/admin/records",
-    label: "Records",
-    icon: ClipboardList
-  },
-
-  {
-    to: "/admin/reports",
-    label: "Reports",
-    icon: BarChart3
-  },
-
-  {
-    to: "/admin/notifications",
-    label: "Notifications",
-    icon: Bell
-  },
-
-  {
-    to: "/admin/activity-logs",
-    label: "Activity Logs",
-    icon: Activity
-  },
-
-  {
-    to: "/admin/profile",
-    label: "Profile",
-    icon: UserRound
-  },
-
-  {
-    to: "/admin/settings",
-    label: "Settings",
-    icon: Settings
-  }
-
-];
-
-
-/* =========================================================
-   USER MENU
-========================================================= */
-
-const userMenu = [
-
-  {
-    to: "/user/dashboard",
-    label: "Dashboard",
-    icon: LayoutDashboard
-  },
-
-  {
-    to: "/user/profile",
-    label: "My Profile",
-    icon: UserRound
-  },
-
-  {
-    to: "/user/records",
-    label: "My Records",
-    icon: ClipboardList
-  },
-
-  {
-    to: "/user/reports",
-    label: "My Reports",
-    icon: BarChart3
-  },
-
-  {
-    to: "/user/notifications",
-    label: "Notifications",
-    icon: Bell
-  },
-
-  {
-    to: "/user/settings",
-    label: "Settings",
-    icon: Settings
-  }
-
-];
-
-
-/* =========================================================
-   SHELL
-========================================================= */
-
-function Shell({
-  children
-}: {
-  children: React.ReactNode;
-}) {
-
-  const nav = useNavigate();
-  const loc = useLocation();
-
-  const [open, setOpen] = useState(true);
-
-  const [dark, setDark] = useState(
-    localStorage.getItem("ms_theme") === "dark"
-  );
-
-  const user = getStoredUser();
-
-
-  /* =======================================================
-     SELECT MENU BASED ON ROLE
-  ======================================================= */
-
-  const currentMenu =
-    user?.role === "USER"
-      ? userMenu
-      : adminMenu;
-
-
-  /* =======================================================
-     THEME
-  ======================================================= */
-
-  useEffect(() => {
-
-    document.documentElement.dataset.theme =
-      dark ? "dark" : "light";
-
-    localStorage.setItem(
-      "ms_theme",
-      dark ? "dark" : "light"
-    );
-
-  }, [dark]);
-
-
-  /* =======================================================
-     LOGOUT
-  ======================================================= */
-
-  async function logout() {
-
-    try {
-      await api.post(
-        "/api/auth/logout"
-      );
-    } catch {}
-
-    localStorage.removeItem(
-      "ms_user"
-    );
-
-    nav(
-      "/login",
-      {
-        replace: true
-      }
-    );
-  }
-
-
-  /* =======================================================
-     PAGE TITLE
-  ======================================================= */
-
-  const title =
-    currentMenu.find(
-      (m) => loc.pathname === m.to
-    )?.label ||
-    "Dashboard";
-
-
-  return (
-
-    <div className="app-shell">
-
-
-      {/* ===================================================
-          SIDEBAR
-      =================================================== */}
-
-      <aside
-        className={
-          "sidebar " +
-          (open ? "" : "collapsed")
-        }
-      >
-
-
-        {/* BRAND */}
-
-        <div className="sidebar-brand">
-
-          <div className="brand-mini">
-            <Shield size={22} />
-          </div>
-
-
-          {open && (
-            <div>
-              <strong>
-                Management
-              </strong>
-
-              <span>
-                CONTROL PANEL
-              </span>
-            </div>
-          )}
-
-
-          <button
-            className="collapse-btn"
-            onClick={() =>
-              setOpen(!open)
-            }
-          >
-
-            {open
-              ? <ChevronLeft />
-              : <ChevronRight />
-            }
-
-          </button>
-
-        </div>
-
-
-        {/* PROFILE */}
-
-        <div className="profile-mini">
-
-          <div className="avatar">
-
-            {(
-              user?.name ||
-              user?.username ||
-              "A"
-            )
-              .slice(0, 1)
-              .toUpperCase()}
-
-          </div>
-
-
-          {open && (
-
-            <div>
-
-              <strong>
-                {
-                  user?.name ||
-                  user?.username ||
-                  "Administrator"
-                }
-              </strong>
-
-              <span>
-                {
-                  user?.role ||
-                  "ADMIN"
-                }
-              </span>
-
-            </div>
-
-          )}
-
-        </div>
-
-
-        {/* NAVIGATION */}
-
-        <nav className="side-nav">
-
-          {currentMenu.map(
-            (item) => {
-
-              const Icon =
-                item.icon;
-
-              return (
-
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  className={
-                    ({ isActive }) =>
-                      "nav-item " +
-                      (
-                        isActive
-                          ? "active"
-                          : ""
-                      )
-                  }
-                >
-
-                  <Icon size={19} />
-
-                  {open && (
-                    <span>
-                      {item.label}
-                    </span>
-                  )}
-
-                </NavLink>
-
-              );
-
-            }
-          )}
-
-        </nav>
-
-
-        {/* LOGOUT */}
-
-        <button
-          className="nav-item logout"
-          onClick={logout}
-        >
-
-          <LogOut size={19} />
-
-          {open && (
-            <span>
-              Logout
-            </span>
-          )}
-
-        </button>
-
-
-      </aside>
-
-
-      {/* ===================================================
-          MAIN AREA
-      =================================================== */}
-
-      <main className="main-area">
-
-
-        {/* TOP BAR */}
-
-        <header className="topbar">
-
-
-          <div className="top-left">
-
-            <button
-              className="mobile-menu"
-              onClick={() =>
-                setOpen(!open)
-              }
-            >
-              <Menu />
-            </button>
-
-
-            <div>
-
-              <span className="crumb">
-
-                {
-                  user?.role === "USER"
-                    ? "User Portal"
-                    : "Admin Portal"
-                }
-
-              </span>
-
-              <h2>
-                {title}
-              </h2>
-
-            </div>
-
-          </div>
-
-
-          <div className="top-actions">
-
-
-            <div className="search">
-
-              <Search size={17} />
-
-              <input
-                placeholder="Search..."
-              />
-
-            </div>
-
-
-            <button
-              className="icon-btn"
-              onClick={() =>
-                setDark(!dark)
-              }
-            >
-
-              {dark
-                ? <Sun size={19} />
-                : <Moon size={19} />
-              }
-
-            </button>
-
-
-            <button className="icon-btn">
-
-              <Bell size={19} />
-
-              <i />
-
-            </button>
-
-
-            <div className="top-user">
-
-              {(
-                user?.name ||
-                user?.username ||
-                "A"
-              )
-                .slice(0, 1)
-                .toUpperCase()}
-
-            </div>
-
-
-          </div>
-
-        </header>
-
-
-        <section className="content">
-
-          {children}
-
-        </section>
-
-
-      </main>
-
-    </div>
-  );
-}
-
-
-/* =========================================================
-   PROTECTED ROUTES
-========================================================= */
-
-function Protected({
+function ProtectedRoute({
   children,
-  userOnly = false
+  allowedRole,
 }: {
   children: React.ReactNode;
-  userOnly?: boolean;
+  allowedRole: "ADMIN" | "USER";
 }) {
+  if (!isLoggedIn()) {
+    return <Navigate to="/login" replace />;
+  }
 
-  const user =
-    getStoredUser();
+  const user = getUser();
 
+  const isAdmin =
+    user?.role === "SUPER_ADMIN" ||
+    user?.role === "ADMIN";
 
-  if (!user) {
+  const actualRole = isAdmin ? "ADMIN" : "USER";
 
+  if (actualRole !== allowedRole) {
     return (
       <Navigate
-        to="/login"
+        to={
+          actualRole === "ADMIN"
+            ? "/admin/dashboard"
+            : "/user/dashboard"
+        }
         replace
       />
     );
-
   }
 
-
-  if (
-    userOnly &&
-    user.role !== "USER"
-  ) {
-
-    return (
-      <Navigate
-        to="/admin/dashboard"
-        replace
-      />
-    );
-
-  }
-
-
-  if (
-    !userOnly &&
-    user.role === "USER"
-  ) {
-
-    return (
-      <Navigate
-        to="/user/dashboard"
-        replace
-      />
-    );
-
-  }
-
-
-  return (
-    <Shell>
-      {children}
-    </Shell>
-  );
+  return <>{children}</>;
 }
 
-
 /* =========================================================
-   STAT CARD
-========================================================= */
-
-function StatCard({
-  title,
-  value,
-  icon: Icon,
-  tone
-}: any) {
-
-  return (
-
-    <div
-      className={
-        "stat-card " +
-        tone
-      }
-    >
-
-      <div className="stat-icon">
-
-        <Icon size={22} />
-
-      </div>
-
-      <div>
-
-        <span>
-          {title}
-        </span>
-
-        <strong>
-          {value}
-        </strong>
-
-      </div>
-
-    </div>
-  );
-}
-
-
-/* =========================================================
-   ADMIN DASHBOARD
+   ADMIN PANEL
 ========================================================= */
 
 function AdminDashboard() {
+  const user = getUser();
+  const navigate = useNavigate();
 
-  const [data, setData] =
-    useState<Dashboard | null>(
-      null
-    );
-
-  const [loading, setLoading] =
-    useState(true);
-
-
-  useEffect(() => {
-
-    api
-      .get("/api/dashboard")
-      .then((r) =>
-        setData(
-          r.data.data ||
-          r.data
-        )
-      )
-      .catch(() =>
-        setData(null)
-      )
-      .finally(() =>
-        setLoading(false)
-      );
-
-  }, []);
-
-
-  const d =
-    data || {
-      totalUsers: 0,
-      activeUsers: 0,
-      inactiveUsers: 0,
-      totalStaff: 0,
-      departments: 0,
-      todaysActivity: 0,
-      pendingItems: 0,
-      systemStatus: "Online",
-      recentActivity: []
-    };
-
+  function logout() {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate("/login");
+  }
 
   return (
-
-    <div>
-
-
-      <div className="page-heading">
-
-        <div>
-
-          <h1>
-            Dashboard
-          </h1>
-
-          <p>
-            Overview of your management system
-          </p>
-
-        </div>
-
-
-        <div className="status-pill">
-
-          <span />
-
-          System {d.systemStatus}
-
-        </div>
-
+    <PanelLayout
+      title="Admin Dashboard"
+      role="ADMIN"
+      logout={logout}
+    >
+      <div className="grid gap-5 md:grid-cols-4">
+        <Stat title="Total Users" value="0" />
+        <Stat title="Staff" value="0" />
+        <Stat title="Records" value="0" />
+        <Stat title="Reports" value="0" />
       </div>
 
-
-      {loading && (
-
-        <div className="loading-card">
-          Loading live dashboard data...
-        </div>
-
-      )}
-
-
-      <div className="stats-grid">
-
-        <StatCard
-          title="Total Users"
-          value={d.totalUsers}
-          icon={Users}
-          tone="blue"
-        />
-
-        <StatCard
-          title="Active Users"
-          value={d.activeUsers}
-          icon={UserRound}
-          tone="green"
-        />
-
-        <StatCard
-          title="Inactive Users"
-          value={d.inactiveUsers}
-          icon={Shield}
-          tone="amber"
-        />
-
-        <StatCard
-          title="Total Staff"
-          value={d.totalStaff}
-          icon={UserCog}
-          tone="purple"
-        />
-
-        <StatCard
-          title="Departments"
-          value={d.departments}
-          icon={Building2}
-          tone="cyan"
-        />
-
-        <StatCard
-          title="Today's Activity"
-          value={d.todaysActivity}
-          icon={Activity}
-          tone="rose"
-        />
-
-        <StatCard
-          title="Pending Items"
-          value={d.pendingItems}
-          icon={ClipboardList}
-          tone="orange"
-        />
-
-        <StatCard
-          title="System Status"
-          value={d.systemStatus}
-          icon={Shield}
-          tone="green"
-        />
-
-      </div>
-
-
-      <div className="dashboard-grid">
-
-
-        <div className="panel large">
-
-          <div className="panel-head">
-
-            <div>
-
-              <h3>
-                Activity Overview
-              </h3>
-
-              <span>
-                Recent administrative activity
-              </span>
-
-            </div>
-
-            <BarChart3 size={20} />
-
-          </div>
-
-
-          <div className="bars">
-
-            {[
-              38,
-              55,
-              42,
-              72,
-              60,
-              83,
-              66,
-              91,
-              75,
-              88,
-              70,
-              96
-            ].map(
-              (n, i) => (
-
-                <div
-                  className="bar-col"
-                  key={i}
-                >
-
-                  <div
-                    className="bar"
-                    style={{
-                      height:
-                        n + "%"
-                    }}
-                  />
-
-                  <small>
-                    {i + 1}
-                  </small>
-
-                </div>
-
-              )
-            )}
-
-          </div>
-
-        </div>
-
-
-        <div className="panel">
-
-          <div className="panel-head">
-
-            <div>
-
-              <h3>
-                Quick Actions
-              </h3>
-
-              <span>
-                Common management tasks
-              </span>
-
-            </div>
-
-          </div>
-
-
-          <div className="quick-actions">
-
-            <NavLink to="/admin/users">
-              <Users />
-              Manage Users
-            </NavLink>
-
-            <NavLink to="/admin/staff">
-              <UserCog />
-              Manage Staff
-            </NavLink>
-
-            <NavLink to="/admin/reports">
-              <BarChart3 />
-              View Reports
-            </NavLink>
-
-            <NavLink to="/admin/settings">
-              <Settings />
-              System Settings
-            </NavLink>
-
-          </div>
-
-        </div>
-
-      </div>
-
-
-      <div className="panel">
-
-        <div className="panel-head">
-
-          <div>
-
-            <h3>
-              Recent Activity
-            </h3>
-
-            <span>
-              Live records from the database
-            </span>
-
-          </div>
-
-          <Activity size={20} />
-
-        </div>
-
-
-        <div className="table-wrap">
-
-          <table>
-
-            <thead>
-
-              <tr>
-
-                <th>User</th>
-                <th>Action</th>
-                <th>Description</th>
-                <th>IP</th>
-                <th>Date</th>
-
-              </tr>
-
-            </thead>
-
-
-            <tbody>
-
-              {d.recentActivity?.length
-
-                ? d.recentActivity.map(
-                    (a) => (
-
-                      <tr key={a.id}>
-
-                        <td>
-                          {a.user ||
-                            "System"}
-                        </td>
-
-                        <td>
-                          <span className="tag">
-                            {a.action}
-                          </span>
-                        </td>
-
-                        <td>
-                          {a.description}
-                        </td>
-
-                        <td>
-                          {a.ipAddress ||
-                            "—"}
-                        </td>
-
-                        <td>
-                          {new Date(
-                            a.createdAt
-                          ).toLocaleString()}
-                        </td>
-
-                      </tr>
-
-                    )
-                  )
-
-                : (
-
-                  <tr>
-
-                    <td
-                      colSpan={5}
-                      className="empty"
-                    >
-                      No activity records yet.
-                    </td>
-
-                  </tr>
-
-                )}
-
-            </tbody>
-
-          </table>
-
-        </div>
-
-      </div>
-
-    </div>
-  );
-}
-
-
-/* =========================================================
-   USER MANAGEMENT
-========================================================= */
-
-function UsersPage() {
-
-  const [users, setUsers] =
-    useState<User[]>([]);
-
-  const [search, setSearch] =
-    useState("");
-
-  const [showAdd, setShowAdd] =
-    useState(false);
-
-  const [form, setForm] =
-    useState({
-      username: "",
-      email: "",
-      name: "",
-      password: "",
-      role: "USER"
-    });
-
-  const [message, setMessage] =
-    useState("");
-
-
-  async function load() {
-
-    try {
-
-      const r =
-        await api.get(
-          "/api/users"
-        );
-
-      const value =
-        r.data.data ||
-        r.data.users ||
-        r.data;
-
-      setUsers(
-        Array.isArray(value)
-          ? value
-          : []
-      );
-
-    } catch {}
-
-  }
-
-
-  useEffect(() => {
-    load();
-  }, []);
-
-
-  async function createUser(
-    e: React.FormEvent
-  ) {
-
-    e.preventDefault();
-
-    setMessage("");
-
-    try {
-
-      await api.post(
-        "/api/users",
-        form
-      );
-
-      setShowAdd(false);
-
-      setForm({
-        username: "",
-        email: "",
-        name: "",
-        password: "",
-        role: "USER"
-      });
-
-      setMessage(
-        "User created successfully."
-      );
-
-      load();
-
-    } catch (err: any) {
-
-      setMessage(
-        err?.response?.data?.message ||
-        "Could not create user."
-      );
-
-    }
-  }
-
-
-  async function toggle(
-    u: User
-  ) {
-
-    try {
-
-      await api.put(
-        `/api/users/${u.id}`,
-        {
-          status:
-            u.status === "ACTIVE"
-              ? "INACTIVE"
-              : "ACTIVE"
-        }
-      );
-
-      load();
-
-    } catch {}
-
-  }
-
-
-  async function remove(
-    u: User
-  ) {
-
-    if (
-      !confirm(
-        `Delete ${u.username || u.email}?`
-      )
-    ) {
-      return;
-    }
-
-    try {
-
-      await api.delete(
-        `/api/users/${u.id}`
-      );
-
-      load();
-
-    } catch {}
-
-  }
-
-
-  const filtered =
-    users.filter(
-      (u) =>
-        `${u.username || ""} ${
-          u.email
-        } ${u.name || ""}`
-          .toLowerCase()
-          .includes(
-            search.toLowerCase()
-          )
-    );
-
-
-  return (
-
-    <div>
-
-      <div className="page-heading">
-
-        <div>
-
-          <h1>
-            User Management
-          </h1>
-
-          <p>
-            Create accounts, activate users and control access.
-          </p>
-
-        </div>
-
-
-        <button
-          className="primary"
-          onClick={() =>
-            setShowAdd(true)
-          }
-        >
-          + Add User
-        </button>
-
-      </div>
-
-
-      {message && (
-
-        <div className="alert success">
-          {message}
-        </div>
-
-      )}
-
-
-      <div className="panel">
-
-        <div className="toolbar">
-
-          <div className="search wide">
-
-            <Search size={17} />
-
-            <input
-              value={search}
-              onChange={(e) =>
-                setSearch(
-                  e.target.value
-                )
-              }
-              placeholder="Search users..."
-            />
-
-          </div>
-
-          <span className="muted">
-            {filtered.length} users
-          </span>
-
-        </div>
-
-
-        <div className="table-wrap">
-
-          <table>
-
-            <thead>
-
-              <tr>
-
-                <th>Username</th>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Last Login</th>
-                <th>Actions</th>
-
-              </tr>
-
-            </thead>
-
-
-            <tbody>
-
-              {filtered.map(
-                (u) => (
-
-                  <tr key={u.id}>
-
-                    <td>
-                      <strong>
-                        {u.username ||
-                          "—"}
-                      </strong>
-                    </td>
-
-                    <td>
-                      {u.name || "—"}
-                    </td>
-
-                    <td>
-                      {u.email}
-                    </td>
-
-                    <td>
-                      <span className="tag">
-                        {u.role}
-                      </span>
-                    </td>
-
-                    <td>
-
-                      <span
-                        className={
-                          "status " +
-                          (
-                            u.status ===
-                            "ACTIVE"
-                              ? "on"
-                              : "off"
-                          )
-                        }
-                      >
-                        {
-                          u.status ||
-                          "UNKNOWN"
-                        }
-                      </span>
-
-                    </td>
-
-                    <td>
-
-                      {
-                        u.lastLoginAt
-                          ? new Date(
-                              u.lastLoginAt
-                            ).toLocaleString()
-                          : "—"
-                      }
-
-                    </td>
-
-                    <td>
-
-                      <div className="actions">
-
-                        <button
-                          onClick={() =>
-                            toggle(u)
-                          }
-                        >
-                          {
-                            u.status ===
-                            "ACTIVE"
-                              ? "Deactivate"
-                              : "Activate"
-                          }
-                        </button>
-
-                        <button
-                          className="danger-text"
-                          onClick={() =>
-                            remove(u)
-                          }
-                        >
-                          Delete
-                        </button>
-
-                      </div>
-
-                    </td>
-
-                  </tr>
-
-                )
-              )}
-
-            </tbody>
-
-          </table>
-
-        </div>
-
-      </div>
-
-
-      {showAdd && (
-
-        <div className="modal-backdrop">
-
-          <form
-            className="modal"
-            onSubmit={
-              createUser
-            }
-          >
-
-            <div className="modal-head">
-
-              <h3>
-                Create User
-              </h3>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setShowAdd(false)
-                }
-              >
-                <X />
-              </button>
-
-            </div>
-
-
-            <div className="form-grid">
-
-
-              <div>
-
-                <label>
-                  Username
-                </label>
-
-                <input
-                  required
-                  value={
-                    form.username
-                  }
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      username:
-                        e.target.value
-                    })
-                  }
-                />
-
-              </div>
-
-
-              <div>
-
-                <label>
-                  Full Name
-                </label>
-
-                <input
-                  value={
-                    form.name
-                  }
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      name:
-                        e.target.value
-                    })
-                  }
-                />
-
-              </div>
-
-
-              <div>
-
-                <label>
-                  Email
-                </label>
-
-                <input
-                  type="email"
-                  required
-                  value={
-                    form.email
-                  }
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      email:
-                        e.target.value
-                    })
-                  }
-                />
-
-              </div>
-
-
-              <div>
-
-                <label>
-                  Password
-                </label>
-
-                <input
-                  type="password"
-                  required
-                  minLength={8}
-                  value={
-                    form.password
-                  }
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      password:
-                        e.target.value
-                    })
-                  }
-                />
-
-              </div>
-
-
-              <div>
-
-                <label>
-                  Role
-                </label>
-
-                <select
-                  value={
-                    form.role
-                  }
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      role:
-                        e.target.value
-                    })
-                  }
-                >
-
-                  <option>
-                    USER
-                  </option>
-
-                  <option>
-                    STAFF
-                  </option>
-
-                  <option>
-                    MANAGER
-                  </option>
-
-                  <option>
-                    ADMIN
-                  </option>
-
-                </select>
-
-              </div>
-
-            </div>
-
-
-            <div className="modal-actions">
-
-              <button
-                type="button"
-                className="secondary"
-                onClick={() =>
-                  setShowAdd(false)
-                }
-              >
-                Cancel
-              </button>
-
-              <button className="primary">
-                Create User
-              </button>
-
-            </div>
-
-          </form>
-
-        </div>
-
-      )}
-
-    </div>
-  );
-}
-
-
-/* =========================================================
-   GENERIC ADMIN PAGE
-========================================================= */
-
-function GenericPage({
-  title,
-  subtitle,
-  icon: Icon
-}: any) {
-
-  return (
-
-    <div>
-
-      <div className="page-heading">
-
-        <div>
-
-          <h1>
-            {title}
-          </h1>
-
-          <p>
-            {subtitle}
-          </p>
-
-        </div>
-
-      </div>
-
-
-      <div className="empty-page">
-
-        <Icon size={48} />
-
-        <h2>
-          {title}
+      <div className="mt-8 rounded-2xl border border-white/10 bg-slate-900 p-7">
+        <h2 className="text-2xl font-bold">
+          Welcome, {user?.name || user?.username || "Admin"}
         </h2>
 
-        <p>
-          This module is connected to the protected management navigation.
+        <p className="mt-3 text-slate-400">
+          You are logged in as administrator.
         </p>
-
       </div>
-
-    </div>
+    </PanelLayout>
   );
 }
 
-
 /* =========================================================
-   USER DASHBOARD
+   USER PANEL
 ========================================================= */
 
 function UserDashboard() {
-
-  const user =
-    getStoredUser();
-
-
-  return (
-
-    <div>
-
-      <div className="page-heading">
-
-        <div>
-
-          <h1>
-            Welcome, {
-              user?.name ||
-              user?.username ||
-              "User"
-            }
-          </h1>
-
-          <p>
-            Your personal account dashboard
-          </p>
-
-        </div>
-
-      </div>
-
-
-      <div className="stats-grid">
-
-        <StatCard
-          title="Account Status"
-          value={
-            user?.status ||
-            "ACTIVE"
-          }
-          icon={Shield}
-          tone="green"
-        />
-
-        <StatCard
-          title="Role"
-          value={
-            user?.role ||
-            "USER"
-          }
-          icon={UserRound}
-          tone="blue"
-        />
-
-        <StatCard
-          title="Department"
-          value={
-            user?.department ||
-            "—"
-          }
-          icon={Building2}
-          tone="purple"
-        />
-
-      </div>
-
-
-      <div className="panel">
-
-        <div className="panel-head">
-
-          <div>
-
-            <h3>
-              Your account
-            </h3>
-
-            <span>
-              Basic account information
-            </span>
-
-          </div>
-
-        </div>
-
-
-        <div className="account-grid">
-
-          <div>
-
-            <span>
-              Name
-            </span>
-
-            <strong>
-              {user?.name ||
-                "—"}
-            </strong>
-
-          </div>
-
-
-          <div>
-
-            <span>
-              Username
-            </span>
-
-            <strong>
-              {user?.username ||
-                "—"}
-            </strong>
-
-          </div>
-
-
-          <div>
-
-            <span>
-              Email
-            </span>
-
-            <strong>
-              {user?.email ||
-                "—"}
-            </strong>
-
-          </div>
-
-
-          <div>
-
-            <span>
-              Role
-            </span>
-
-            <strong>
-              {user?.role ||
-                "USER"}
-            </strong>
-
-          </div>
-
-        </div>
-
-      </div>
-
-    </div>
-  );
-}
-
-
-/* =========================================================
-   USER PROFILE
-========================================================= */
-
-function UserProfile() {
-
-  const user =
-    getStoredUser();
-
-
-  return (
-
-    <div>
-
-      <div className="page-heading">
-
-        <div>
-
-          <h1>
-            My Profile
-          </h1>
-
-          <p>
-            View your account information
-          </p>
-
-        </div>
-
-      </div>
-
-
-      <div className="panel">
-
-        <div className="panel-head">
-
-          <div>
-
-            <h3>
-              Account Information
-            </h3>
-
-            <span>
-              Your registered profile details
-            </span>
-
-          </div>
-
-          <UserRound size={20} />
-
-        </div>
-
-
-        <div className="account-grid">
-
-          <div>
-
-            <span>
-              Full Name
-            </span>
-
-            <strong>
-              {user?.name ||
-                "—"}
-            </strong>
-
-          </div>
-
-
-          <div>
-
-            <span>
-              Username
-            </span>
-
-            <strong>
-              {user?.username ||
-                "—"}
-            </strong>
-
-          </div>
-
-
-          <div>
-
-            <span>
-              Email
-            </span>
-
-            <strong>
-              {user?.email ||
-                "—"}
-            </strong>
-
-          </div>
-
-
-          <div>
-
-            <span>
-              Role
-            </span>
-
-            <strong>
-              {user?.role ||
-                "USER"}
-            </strong>
-
-          </div>
-
-
-          <div>
-
-            <span>
-              Status
-            </span>
-
-            <strong>
-              {user?.status ||
-                "ACTIVE"}
-            </strong>
-
-          </div>
-
-
-          <div>
-
-            <span>
-              Department
-            </span>
-
-            <strong>
-              {user?.department ||
-                "—"}
-            </strong>
-
-          </div>
-
-        </div>
-
-      </div>
-
-    </div>
-  );
-}
-
-
-/* =========================================================
-   USER RECORDS
-========================================================= */
-
-function UserRecords() {
-
-  return (
-
-    <div>
-
-      <div className="page-heading">
-
-        <div>
-
-          <h1>
-            My Records
-          </h1>
-
-          <p>
-            View records assigned to your account
-          </p>
-
-        </div>
-
-      </div>
-
-
-      <div className="panel">
-
-        <div className="empty-page">
-
-          <ClipboardList
-            size={48}
-          />
-
-          <h2>
-            No records yet
-          </h2>
-
-          <p>
-            Your assigned records will appear here.
-          </p>
-
-        </div>
-
-      </div>
-
-    </div>
-  );
-}
-
-
-/* =========================================================
-   USER REPORTS
-========================================================= */
-
-function UserReports() {
-
-  return (
-
-    <div>
-
-      <div className="page-heading">
-
-        <div>
-
-          <h1>
-            My Reports
-          </h1>
-
-          <p>
-            View reports available for your account
-          </p>
-
-        </div>
-
-      </div>
-
-
-      <div className="panel">
-
-        <div className="empty-page">
-
-          <FileText
-            size={48}
-          />
-
-          <h2>
-            No reports yet
-          </h2>
-
-          <p>
-            Available reports will appear here.
-          </p>
-
-        </div>
-
-      </div>
-
-    </div>
-  );
-}
-
-
-/* =========================================================
-   USER NOTIFICATIONS
-========================================================= */
-
-function UserNotifications() {
-
-  return (
-
-    <div>
-
-      <div className="page-heading">
-
-        <div>
-
-          <h1>
-            Notifications
-          </h1>
-
-          <p>
-            Your account notifications
-          </p>
-
-        </div>
-
-      </div>
-
-
-      <div className="panel">
-
-        <div className="empty-page">
-
-          <Bell size={48} />
-
-          <h2>
-            No new notifications
-          </h2>
-
-          <p>
-            New notifications will appear here.
-          </p>
-
-        </div>
-
-      </div>
-
-    </div>
-  );
-}
-
-
-/* =========================================================
-   USER SETTINGS
-========================================================= */
-
-function UserSettings() {
-
-  const [
-    dark,
-    setDark
-  ] = useState(
-    localStorage.getItem(
-      "ms_theme"
-    ) === "dark"
-  );
-
-
-  function changeTheme(
-    value: boolean
-  ) {
-
-    setDark(value);
-
-    document.documentElement.dataset.theme =
-      value
-        ? "dark"
-        : "light";
-
-    localStorage.setItem(
-      "ms_theme",
-      value
-        ? "dark"
-        : "light"
-    );
+  const user = getUser();
+  const navigate = useNavigate();
+
+  function logout() {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate("/login");
   }
 
+  return (
+    <PanelLayout
+      title="User Dashboard"
+      role="USER"
+      logout={logout}
+    >
+      <div className="grid gap-5 md:grid-cols-3">
+        <Stat title="My Records" value="0" />
+        <Stat title="My Reports" value="0" />
+        <Stat title="Notifications" value="0" />
+      </div>
+
+      <div className="mt-8 rounded-2xl border border-white/10 bg-slate-900 p-7">
+        <h2 className="text-2xl font-bold">
+          Welcome, {user?.name || user?.username || "User"}
+        </h2>
+
+        <p className="mt-3 text-slate-400">
+          Welcome to your personal dashboard.
+        </p>
+      </div>
+    </PanelLayout>
+  );
+}
+
+/* =========================================================
+   PANEL LAYOUT
+========================================================= */
+
+function PanelLayout({
+  title,
+  role,
+  logout,
+  children,
+}: {
+  title: string;
+  role: "ADMIN" | "USER";
+  logout: () => void;
+  children: React.ReactNode;
+}) {
+  const navigate = useNavigate();
+
+  const adminMenu = [
+    ["Dashboard", "/admin/dashboard"],
+    ["Users", "/admin/users"],
+    ["Staff", "/admin/staff"],
+    ["Departments", "/admin/departments"],
+    ["Records", "/admin/records"],
+    ["Reports", "/admin/reports"],
+    ["Notifications", "/admin/notifications"],
+    ["Settings", "/admin/settings"],
+  ];
+
+  const userMenu = [
+    ["Dashboard", "/user/dashboard"],
+    ["My Profile", "/user/profile"],
+    ["My Records", "/user/records"],
+    ["My Reports", "/user/reports"],
+    ["Notifications", "/user/notifications"],
+    ["Settings", "/user/settings"],
+  ];
+
+  const menu =
+    role === "USER" ? userMenu : adminMenu;
 
   return (
-
-    <div>
-
-      <div className="page-heading">
-
-        <div>
-
-          <h1>
-            Settings
-          </h1>
-
-          <p>
-            Manage your personal portal preferences
-          </p>
-
-        </div>
-
-      </div>
-
-
-      <div className="panel">
-
-        <div className="panel-head">
-
-          <div>
-
-            <h3>
-              Appearance
-            </h3>
-
-            <span>
-              Choose how your portal looks
-            </span>
-
-          </div>
-
-          <Settings size={20} />
-
-        </div>
-
-
-        <div className="quick-actions">
-
-          <button
-            onClick={() =>
-              changeTheme(false)
-            }
-          >
-
-            <Sun />
-
-            Light Mode
-
-          </button>
-
-
-          <button
-            onClick={() =>
-              changeTheme(true)
-            }
-          >
-
-            <Moon />
-
-            Dark Mode
-
-          </button>
-
-        </div>
-
-
-        <div
-          className="alert success"
-          style={{
-            marginTop: "20px"
-          }}
+    <div className="min-h-screen bg-slate-950 text-white">
+      <aside className="fixed left-0 top-0 hidden h-screen w-64 border-r border-white/10 bg-slate-900 p-5 lg:block">
+        <Link
+          to="/"
+          className="block border-b border-white/10 pb-5 text-2xl font-black"
         >
+          Management
+          <span className="text-blue-500">
+            Pro
+          </span>
+        </Link>
 
-          Current theme:{" "}
-          {dark
-            ? "Dark"
-            : "Light"}
-
+        <div className="mt-6 space-y-2">
+          {menu.map(([label, path]) => (
+            <Link
+              key={path}
+              to={path}
+              className="block rounded-xl px-4 py-3 text-slate-300 transition hover:bg-blue-600 hover:text-white"
+            >
+              {label}
+            </Link>
+          ))}
         </div>
 
-      </div>
+        <button
+          onClick={logout}
+          className="absolute bottom-6 left-5 right-5 rounded-xl border border-white/10 px-4 py-3 text-slate-300 hover:bg-red-500/10 hover:text-red-300"
+        >
+          Logout
+        </button>
+      </aside>
 
+      <main className="min-h-screen lg:ml-64">
+        <header className="border-b border-white/10 bg-slate-950 px-5 py-5 md:px-8">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold">
+              {title}
+            </h1>
+
+            <button
+              onClick={() => navigate("/")}
+              className="rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-300 hover:bg-white/10"
+            >
+              Website
+            </button>
+          </div>
+        </header>
+
+        <section className="p-5 md:p-8">
+          {children}
+        </section>
+      </main>
     </div>
   );
 }
 
-
 /* =========================================================
-   APP ROUTES
+   STAT
 ========================================================= */
 
-function App() {
-
+function Stat({
+  title,
+  value,
+}: {
+  title: string;
+  value: string;
+}) {
   return (
+    <div className="rounded-2xl border border-white/10 bg-slate-900 p-6">
+      <p className="text-sm text-slate-400">
+        {title}
+      </p>
 
-    <Routes>
-
-
-      {/* LOGIN */}
-
-      <Route
-        path="/login"
-        element={<Login />}
-      />
-
-
-      {/* ROOT */}
-
-      <Route
-        path="/"
-        element={
-          <Navigate
-            to="/login"
-            replace
-          />
-        }
-      />
-
-
-      {/* ===================================================
-          ADMIN ROUTES
-      =================================================== */}
-
-      <Route
-        path="/admin/dashboard"
-        element={
-          <Protected>
-            <AdminDashboard />
-          </Protected>
-        }
-      />
-
-
-      <Route
-        path="/admin/users"
-        element={
-          <Protected>
-            <UsersPage />
-          </Protected>
-        }
-      />
-
-
-      <Route
-        path="/admin/staff"
-        element={
-          <Protected>
-            <GenericPage
-              title="Staff Management"
-              subtitle="Manage staff and employee records."
-              icon={UserCog}
-            />
-          </Protected>
-        }
-      />
-
-
-      <Route
-        path="/admin/departments"
-        element={
-          <Protected>
-            <GenericPage
-              title="Departments"
-              subtitle="Manage departments and managers."
-              icon={Building2}
-            />
-          </Protected>
-        }
-      />
-
-
-      <Route
-        path="/admin/records"
-        element={
-          <Protected>
-            <GenericPage
-              title="Records"
-              subtitle="Search, filter and manage system records."
-              icon={ClipboardList}
-            />
-          </Protected>
-        }
-      />
-
-
-      <Route
-        path="/admin/reports"
-        element={
-          <Protected>
-            <GenericPage
-              title="Reports"
-              subtitle="Generate reports and export operational data."
-              icon={FileText}
-            />
-          </Protected>
-        }
-      />
-
-
-      <Route
-        path="/admin/notifications"
-        element={
-          <Protected>
-            <GenericPage
-              title="Notifications"
-              subtitle="Review system notifications."
-              icon={Bell}
-            />
-          </Protected>
-        }
-      />
-
-
-      <Route
-        path="/admin/activity-logs"
-        element={
-          <Protected>
-            <GenericPage
-              title="Activity Logs"
-              subtitle="Review the administrative audit trail."
-              icon={Activity}
-            />
-          </Protected>
-        }
-      />
-
-
-      <Route
-        path="/admin/profile"
-        element={
-          <Protected>
-            <GenericPage
-              title="Profile"
-              subtitle="Manage your account profile."
-              icon={UserRound}
-            />
-          </Protected>
-        }
-      />
-
-
-      <Route
-        path="/admin/settings"
-        element={
-          <Protected>
-            <GenericPage
-              title="Settings"
-              subtitle="Configure system and security settings."
-              icon={Settings}
-            />
-          </Protected>
-        }
-      />
-
-
-      {/* ===================================================
-          USER ROUTES
-      =================================================== */}
-
-      <Route
-        path="/user/dashboard"
-        element={
-          <Protected userOnly>
-            <UserDashboard />
-          </Protected>
-        }
-      />
-
-
-      <Route
-        path="/user/profile"
-        element={
-          <Protected userOnly>
-            <UserProfile />
-          </Protected>
-        }
-      />
-
-
-      <Route
-        path="/user/records"
-        element={
-          <Protected userOnly>
-            <UserRecords />
-          </Protected>
-        }
-      />
-
-
-      <Route
-        path="/user/reports"
-        element={
-          <Protected userOnly>
-            <UserReports />
-          </Protected>
-        }
-      />
-
-
-      <Route
-        path="/user/notifications"
-        element={
-          <Protected userOnly>
-            <UserNotifications />
-          </Protected>
-        }
-      />
-
-
-      <Route
-        path="/user/settings"
-        element={
-          <Protected userOnly>
-            <UserSettings />
-          </Protected>
-        }
-      />
-
-
-      {/* FALLBACK */}
-
-      <Route
-        path="*"
-        element={
-          <Navigate
-            to="/login"
-            replace
-          />
-        }
-      />
-
-    </Routes>
+      <p className="mt-3 text-3xl font-black">
+        {value}
+      </p>
+    </div>
   );
 }
 
+/* =========================================================
+   GENERIC PANEL PAGE
+========================================================= */
 
-export default App;
+function GenericPanelPage({
+  title,
+  role,
+}: {
+  title: string;
+  role: "ADMIN" | "USER";
+}) {
+  const navigate = useNavigate();
+
+  function logout() {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate("/login");
+  }
+
+  return (
+    <PanelLayout
+      title={title}
+      role={role}
+      logout={logout}
+    >
+      <div className="rounded-2xl border border-white/10 bg-slate-900 p-8">
+        <h2 className="text-2xl font-bold">
+          {title}
+        </h2>
+
+        <p className="mt-3 text-slate-400">
+          This section is ready for your backend functionality.
+        </p>
+      </div>
+    </PanelLayout>
+  );
+}
+
+/* =========================================================
+   APP
+========================================================= */
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+
+        {/* PUBLIC */}
+        <Route
+          path="/"
+          element={<LandingPage />}
+        />
+
+        <Route
+          path="/pricing"
+          element={<PricingPage />}
+        />
+
+        {/* LOGIN */}
+        <Route
+          path="/login"
+          element={<LoginPage />}
+        />
+
+        {/* ADMIN */}
+        <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute allowedRole="ADMIN">
+              <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/users"
+          element={
+            <ProtectedRoute allowedRole="ADMIN">
+              <GenericPanelPage
+                title="Users"
+                role="ADMIN"
+              />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/staff"
+          element={
+            <ProtectedRoute allowedRole="ADMIN">
+              <GenericPanelPage
+                title="Staff"
+                role="ADMIN"
+              />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/departments"
+          element={
+            <ProtectedRoute allowedRole="ADMIN">
+              <GenericPanelPage
+                title="Departments"
+                role="ADMIN"
+              />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/records"
+          element={
+            <ProtectedRoute allowedRole="ADMIN">
+              <GenericPanelPage
+                title="Records"
+                role="ADMIN"
+              />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/reports"
+          element={
+            <ProtectedRoute allowedRole="ADMIN">
+              <GenericPanelPage
+                title="Reports"
+                role="ADMIN"
+              />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/notifications"
+          element={
+            <ProtectedRoute allowedRole="ADMIN">
+              <GenericPanelPage
+                title="Notifications"
+                role="ADMIN"
+              />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/settings"
+          element={
+            <ProtectedRoute allowedRole="ADMIN">
+              <GenericPanelPage
+                title="Settings"
+                role="ADMIN"
+              />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* USER */}
+        <Route
+          path="/user/dashboard"
+          element={
+            <ProtectedRoute allowedRole="USER">
+              <UserDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/user/profile"
+          element={
+            <ProtectedRoute allowedRole="USER">
+              <GenericPanelPage
+                title="My Profile"
+                role="USER"
+              />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/user/records"
+          element={
+            <ProtectedRoute allowedRole="USER">
+              <GenericPanelPage
+                title="My Records"
+                role="USER"
+              />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/user/reports"
+          element={
+            <ProtectedRoute allowedRole="USER">
+              <GenericPanelPage
+                title="My Reports"
+                role="USER"
+              />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/user/notifications"
+          element={
+            <ProtectedRoute allowedRole="USER">
+              <GenericPanelPage
+                title="Notifications"
+                role="USER"
+              />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/user/settings"
+          element={
+            <ProtectedRoute allowedRole="USER">
+              <GenericPanelPage
+                title="Settings"
+                role="USER"
+              />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* FALLBACK */}
+        <Route
+          path="*"
+          element={<Navigate to="/" replace />}
+        />
+
+      </Routes>
+    </BrowserRouter>
+  );
+}
