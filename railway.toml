@@ -1,3 +1,0 @@
-# Railway deployment notes:
-# Create two Railway services from the backend/ and frontend/ directories.
-# Add a Railway MySQL service and copy its DATABASE_URL into backend variables.
