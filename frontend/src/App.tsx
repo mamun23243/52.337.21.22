@@ -210,7 +210,7 @@ function Login() {
           </label>
 
           <span className="linkish">
-            Forgot password?
+            lagbe
           </span>
 
         </div>
